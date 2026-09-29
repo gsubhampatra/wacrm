@@ -1,17 +1,18 @@
--- ============================================================
--- Idempotent migration — safe to run multiple times.
+﻿-- ============================================================
+-- Idempotent migration â€” safe to run multiple times.
 -- Uses IF NOT EXISTS for tables/indexes and DROP IF EXISTS
 -- for policies/triggers (Postgres has no CREATE POLICY IF NOT EXISTS).
 -- ============================================================
 
--- Enable UUID extension
+-- Enable UUID extensions used across the schema.
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
 -- PROFILES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   email TEXT NOT NULL,
@@ -34,7 +35,7 @@ CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (
 -- CONTACTS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS contacts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   phone TEXT NOT NULL,
   name TEXT,
@@ -56,7 +57,7 @@ CREATE POLICY "Users can manage own contacts" ON contacts FOR ALL USING (auth.ui
 -- TAGS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS tags (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   color TEXT NOT NULL DEFAULT '#3b82f6',
@@ -71,7 +72,7 @@ CREATE POLICY "Users can manage own tags" ON tags FOR ALL USING (auth.uid() = us
 -- CONTACT_TAGS (many-to-many)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS contact_tags (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -90,7 +91,7 @@ CREATE POLICY "Users can manage contact tags" ON contact_tags FOR ALL
 -- CUSTOM_FIELDS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS custom_fields (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   field_name TEXT NOT NULL,
   field_type TEXT NOT NULL DEFAULT 'text',
@@ -106,7 +107,7 @@ CREATE POLICY "Users can manage own custom fields" ON custom_fields FOR ALL USIN
 -- CONTACT_CUSTOM_VALUES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS contact_custom_values (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   custom_field_id UUID NOT NULL REFERENCES custom_fields(id) ON DELETE CASCADE,
   value TEXT,
@@ -123,7 +124,7 @@ CREATE POLICY "Users can manage custom values" ON contact_custom_values FOR ALL
 -- CONTACT_NOTES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS contact_notes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   note_text TEXT NOT NULL,
@@ -138,7 +139,7 @@ CREATE POLICY "Users can manage own notes" ON contact_notes FOR ALL USING (auth.
 -- CONVERSATIONS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS conversations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'pending', 'closed')),
@@ -161,7 +162,7 @@ CREATE POLICY "Users can manage own conversations" ON conversations FOR ALL USIN
 -- MESSAGES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   sender_type TEXT NOT NULL CHECK (sender_type IN ('customer', 'agent', 'bot')),
   sender_id UUID,
@@ -188,7 +189,7 @@ CREATE POLICY "Service role can insert messages" ON messages FOR INSERT WITH CHE
 -- WHATSAPP_CONFIG
 -- ============================================================
 CREATE TABLE IF NOT EXISTS whatsapp_config (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   phone_number_id TEXT NOT NULL,
   waba_id TEXT,
@@ -209,7 +210,7 @@ CREATE POLICY "Users can manage own config" ON whatsapp_config FOR ALL USING (au
 -- MESSAGE_TEMPLATES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS message_templates (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'Marketing' CHECK (category IN ('Marketing', 'Utility', 'Authentication')),
@@ -232,7 +233,7 @@ CREATE POLICY "Users can manage own templates" ON message_templates FOR ALL USIN
 -- PIPELINES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS pipelines (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -246,7 +247,7 @@ CREATE POLICY "Users can manage own pipelines" ON pipelines FOR ALL USING (auth.
 -- PIPELINE_STAGES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS pipeline_stages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pipeline_id UUID NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   position INTEGER NOT NULL DEFAULT 0,
@@ -265,7 +266,7 @@ CREATE POLICY "Users can manage pipeline stages" ON pipeline_stages FOR ALL
 -- DEALS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS deals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   pipeline_id UUID NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
   stage_id UUID NOT NULL REFERENCES pipeline_stages(id),
@@ -292,7 +293,7 @@ CREATE POLICY "Users can manage own deals" ON deals FOR ALL USING (auth.uid() = 
 -- BROADCASTS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS broadcasts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   template_name TEXT NOT NULL,
@@ -319,7 +320,7 @@ CREATE POLICY "Users can manage own broadcasts" ON broadcasts FOR ALL USING (aut
 -- BROADCAST_RECIPIENTS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS broadcast_recipients (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   broadcast_id UUID NOT NULL REFERENCES broadcasts(id) ON DELETE CASCADE,
   contact_id UUID NOT NULL REFERENCES contacts(id),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'delivered', 'read', 'replied', 'failed')),
@@ -349,7 +350,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply to tables with updated_at — drop existing triggers first to avoid conflicts
+-- Apply to tables with updated_at â€” drop existing triggers first to avoid conflicts
 DROP TRIGGER IF EXISTS set_updated_at ON profiles;
 DROP TRIGGER IF EXISTS set_updated_at ON contacts;
 DROP TRIGGER IF EXISTS set_updated_at ON conversations;
@@ -370,7 +371,7 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON broadcasts FOR EACH ROW EXECUTE F
 -- AUTO-CREATE PROFILE ON USER SIGNUP
 -- Uses SECURITY DEFINER with owner=postgres (bypasses RLS).
 -- EXCEPTION block ensures signup still succeeds even if profile
--- insert fails — profile can be created later if needed.
+-- insert fails â€” profile can be created later if needed.
 -- ============================================================
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user();
@@ -420,3 +421,4 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
   END IF;
 END $$;
+
